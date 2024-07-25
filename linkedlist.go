@@ -1,4 +1,4 @@
-package ds
+package gods
 
 type Node[T any] struct {
     value T

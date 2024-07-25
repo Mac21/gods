@@ -1,4 +1,4 @@
-package ds
+package gods
 
 type Stack[T any] []T
 
