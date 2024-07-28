@@ -1,85 +1,107 @@
 package gods
 
 import (
+	"cmp"
 	"container/heap"
 	"errors"
 )
 
 // An Item is something we manage in a priority queue.
-type item[T comparable] struct {
+type item[T comparable, P cmp.Ordered] struct {
 	value    T   // The value of the item; arbitrary.
-	priority int // The priority of the item in the queue.
-	// The index is needed by update and is maintained by the heap.Interface methods.
-	index int // The index of the item in the heap.
+	priority P // The priority of the item in the queue.
 }
 
-func newItem[T comparable](value T, index, priority int) *item[T] {
-	return &item[T]{
+func newItem[T comparable, P cmp.Ordered](value T, priority P) *item[T, P] {
+	return &item[T, P]{
 		value:    value,
-		index:    index,
 		priority: priority,
 	}
 }
 
 // A PriorityQueue implements heap.Interface and holds Items.
-type items[T comparable] []*item[T]
+type queueItems[T comparable, P cmp.Ordered] struct {
+    items []*item[T, P]
+    comparator func (lhs, rhs P) bool
+}
 
-func (it items[T]) Len() int { return len(it) }
+func (qi queueItems[T, P]) Len() int { return len(qi.items) }
 
-func (it items[T]) Less(i, j int) bool {
+func (qi queueItems[T, P]) Less(i, j int) bool {
 	// We want Pop to give us the highest, not lowest, priority so we use greater than here.
-	return it[i].priority < it[j].priority
+	return qi.comparator(qi.items[i].priority, qi.items[j].priority)
 }
 
-func (it items[T]) Swap(i, j int) {
-	it[i], it[j] = it[j], it[i]
-	it[i].index = i
-	it[j].index = j
+func (qi queueItems[T, P]) Swap(i, j int) {
+	qi.items[i], qi.items[j] = qi.items[j], qi.items[i]
 }
 
-func (it *items[T]) Push(x any) {
-	n := len(*it)
-	item := x.(*item[T])
-	item.index = n
-	*it = append(*it, item)
+func (qi *queueItems[T, P]) Push(x any) {
+	item := x.(*item[T, P])
+	qi.items = append(qi.items, item)
 }
 
-func (it *items[T]) Pop() any {
-	old := *it
+func (qi *queueItems[T, P]) Pop() any {
+	old := qi.items
 	n := len(old)
 	item := old[n-1]
 	old[n-1] = nil  // avoid memory leak
-	item.index = -1 // for safety
-	*it = old[0 : n-1]
+	qi.items = old[0 : n-1]
 	return item
 }
 
-// update modifies the priority and value of an Item in the queue.
-func (it *items[T]) update(item *item[T], value T, priority int) {
-	item.value = value
-	item.priority = priority
-	heap.Fix(it, item.index)
+type PriorityQueue[T comparable, P cmp.Ordered] struct {
+	queue *queueItems[T, P]
 }
 
-type PriorityQueue[T comparable] struct {
-	queue *items[T]
-}
-
-func NewPriorityQueue[T comparable]() *PriorityQueue[T] {
-	pq := &PriorityQueue[T]{
-		queue: new(items[T]),
+func NewPriorityQueue[T comparable, P cmp.Ordered](comparator func (lhs, rhs P) bool) *PriorityQueue[T, P] {
+	pq := &PriorityQueue[T, P]{
+		queue: &queueItems[T, P]{
+            comparator: comparator,
+            items: make([]*item[T, P], 0),
+        },
 	}
 	heap.Init(pq.queue)
 	return pq
 }
 
-func (pq *PriorityQueue[T]) Len() int {
+func NewMinPriorityQueue[T comparable, P cmp.Ordered]() *PriorityQueue[T, P] {
+    pq := &PriorityQueue[T, P]{
+		queue: &queueItems[T, P]{
+            comparator: Minimum[P],
+            items: make([]*item[T, P], 0),
+        },
+    }
+    heap.Init(pq.queue)
+    return pq
+}
+
+func NewMaxPriorityQueue[T comparable, P cmp.Ordered]() *PriorityQueue[T, P] {
+    pq := &PriorityQueue[T, P]{
+		queue: &queueItems[T, P]{
+            comparator: Maximum[P],
+            items: make([]*item[T, P], 0),
+        },
+    }
+    heap.Init(pq.queue)
+    return pq
+}
+
+func Maximum[T cmp.Ordered] (lhs, rhs T) bool {
+    return lhs < rhs
+}
+
+func Minimum[T cmp.Ordered] (lhs, rhs T) bool {
+    return lhs > rhs
+}
+
+func (pq *PriorityQueue[T, P]) Len() int {
 	return pq.queue.Len()
 }
 
-func (pq *PriorityQueue[T]) Exists(value T) bool {
-	var foundItm *item[T]
-	for _, itm := range *pq.queue {
+func (pq *PriorityQueue[T, P]) Exists(value T) bool {
+	var foundItm *item[T, P]
+	for _, itm := range pq.queue.items {
 		if itm.value == value {
 			foundItm = itm
 		}
@@ -87,30 +109,20 @@ func (pq *PriorityQueue[T]) Exists(value T) bool {
 	return foundItm != nil
 }
 
-func (pq *PriorityQueue[T]) Update(value T, priority int) {
-	var foundItm *item[T]
-	for _, itm := range *pq.queue {
-		if itm.value == value {
-			foundItm = itm
-		}
-	}
-
-	if foundItm != nil {
-		pq.queue.update(foundItm, value, priority)
-	}
+func (pq *PriorityQueue[T, P]) Push(value T, priority int) {
+	heap.Push(pq.queue, newItem(value, priority))
 }
 
-func (pq *PriorityQueue[T]) Push(value T, priority int) {
-	heap.Push(pq.queue, newItem(value, pq.Len(), priority))
-}
-
-func (pq *PriorityQueue[T]) Pop() (T, error) {
+func (pq *PriorityQueue[T, P]) Pop() (res T, prio P, ok bool) {
 	if pq.Len() < 1 {
-		var empty T
-		return empty, errors.New("popped empty PriorityQueue")
+        ok = false
+        return
 	}
 
-	res := heap.Pop(pq.queue).(*item[T])
+    itm := heap.Pop(pq.queue).(*item[T, P])
+    res = itm.value
+    prio = itm.priority
+    ok = true
 
-	return res.value, nil
+    return
 }
