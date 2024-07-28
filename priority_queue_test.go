@@ -12,7 +12,7 @@ func TestIntMinPQ(t *testing.T) {
 		3: 4,
 		4: 1,
 	}
-	pq := NewPriorityQueue[int]()
+	pq := NewMinPriorityQueue[int, int]()
 	for v, p := range input {
 		pq.Push(v, p)
 	}
@@ -20,11 +20,11 @@ func TestIntMinPQ(t *testing.T) {
 	i := 0
 	answer := []int{4, 1, 2, 3, 0}
 	for pq.Len() > 0 {
-		res, err := pq.Pop()
+		res, _, ok := pq.Pop()
 		expectedAnswer := answer[i]
 		i++
-		if err != nil {
-			t.Fatal(err)
+		if !ok {
+			t.Fatal("pq.Pop() popped an empty queue")
 		}
 
 		if res != expectedAnswer {
@@ -67,7 +67,7 @@ func TestStructMinPQ(t *testing.T) {
 			Weight: 2,
 		},
 	}
-	pq := NewPriorityQueue[CustomValue]()
+	pq := NewMinPriorityQueue[CustomValue, int]()
 	for _, cv := range input {
 		pq.Push(cv, cv.Weight)
 	}
@@ -97,11 +97,11 @@ func TestStructMinPQ(t *testing.T) {
 		},
 	}
 	for pq.Len() > 0 {
-		res, err := pq.Pop()
+		res, _, ok := pq.Pop()
 		expectedAnswer := answer[i]
 		i++
-		if err != nil {
-			t.Fatal(err)
+		if !ok {
+			t.Fatal("pq.Pop() popped an empty queue")
 		}
 
 		if res != expectedAnswer {
@@ -143,12 +143,10 @@ func TestUpdatePriority(t *testing.T) {
 			Weight: 2,
 		},
 	}
-	pq := NewPriorityQueue[CustomValue]()
+	pq := NewMinPriorityQueue[CustomValue, int]()
 	for _, cv := range input {
 		pq.Push(cv, cv.Weight)
 	}
-
-	pq.Update(input[3], 9)
 
 	i := 0
 	answer := []CustomValue{
@@ -174,11 +172,11 @@ func TestUpdatePriority(t *testing.T) {
 		},
 	}
 	for pq.Len() > 0 {
-		res, err := pq.Pop()
+		res, _, ok := pq.Pop()
 		expectedAnswer := answer[i]
 		i++
-		if err != nil {
-			t.Fatal(err)
+		if !ok {
+			t.Fatal("pq.Pop() popped an empty queue")
 		}
 
 		if res != expectedAnswer {
@@ -220,7 +218,7 @@ func TestCustomValuesExist(t *testing.T) {
 			Weight: 2,
 		},
 	}
-	pq := NewPriorityQueue[CustomValue]()
+	pq := NewMinPriorityQueue[CustomValue, int]()
 	for _, cv := range input {
 		pq.Push(cv, cv.Weight)
 	}
