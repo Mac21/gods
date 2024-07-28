@@ -6,14 +6,14 @@ import (
 )
 
 // An Item is something we manage in a priority queue.
-type item[T any] struct {
+type item[T comparable] struct {
 	value    T   // The value of the item; arbitrary.
 	priority int // The priority of the item in the queue.
 	// The index is needed by update and is maintained by the heap.Interface methods.
 	index int // The index of the item in the heap.
 }
 
-func newItem[T any](value T, index, priority int) *item[T] {
+func newItem[T comparable](value T, index, priority int) *item[T] {
 	return &item[T]{
 		value:    value,
 		index:    index,
@@ -22,7 +22,7 @@ func newItem[T any](value T, index, priority int) *item[T] {
 }
 
 // A PriorityQueue implements heap.Interface and holds Items.
-type items[T any] []*item[T]
+type items[T comparable] []*item[T]
 
 func (it items[T]) Len() int { return len(it) }
 
@@ -61,13 +61,13 @@ func (it *items[T]) update(item *item[T], value T, priority int) {
 	heap.Fix(it, item.index)
 }
 
-type PriorityQueue[T any] struct {
+type PriorityQueue[T comparable] struct {
 	queue *items[T]
 }
 
-func NewPriorityQueue[T any]() *PriorityQueue[T] {
+func NewPriorityQueue[T comparable]() *PriorityQueue[T] {
 	pq := &PriorityQueue[T]{
-		queue: &items[T]{},
+		queue: new(items[T]),
 	}
 	heap.Init(pq.queue)
 	return pq
@@ -77,13 +77,36 @@ func (pq *PriorityQueue[T]) Len() int {
 	return pq.queue.Len()
 }
 
+func (pq *PriorityQueue[T]) Exists(value T) bool {
+	var foundItm *item[T]
+	for _, itm := range *pq.queue {
+		if itm.value == value {
+			foundItm = itm
+		}
+	}
+	return foundItm != nil
+}
+
+func (pq *PriorityQueue[T]) Update(value T, priority int) {
+	var foundItm *item[T]
+	for _, itm := range *pq.queue {
+		if itm.value == value {
+			foundItm = itm
+		}
+	}
+
+	if foundItm != nil {
+		pq.queue.update(foundItm, value, priority)
+	}
+}
+
 func (pq *PriorityQueue[T]) Push(value T, priority int) {
 	heap.Push(pq.queue, newItem(value, pq.Len(), priority))
 }
 
 func (pq *PriorityQueue[T]) Pop() (T, error) {
 	if pq.Len() < 1 {
-        var empty T
+		var empty T
 		return empty, errors.New("popped empty PriorityQueue")
 	}
 
