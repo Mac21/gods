@@ -87,11 +87,11 @@ func NewMaxPriorityQueue[T comparable, P cmp.Ordered]() *PriorityQueue[T, P] {
 }
 
 func Maximum[T cmp.Ordered](lhs, rhs T) bool {
-	return lhs < rhs
+	return lhs > rhs
 }
 
 func Minimum[T cmp.Ordered](lhs, rhs T) bool {
-	return lhs > rhs
+	return lhs < rhs
 }
 
 func (pq *PriorityQueue[T, P]) Len() int {
